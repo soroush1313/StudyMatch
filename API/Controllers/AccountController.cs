@@ -4,6 +4,7 @@ using API.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace API.Controllers
 {
@@ -26,6 +27,20 @@ namespace API.Controllers
             context.Users.Add(user);
             await context.SaveChangesAsync();
             return Ok(user);
+        }
+
+        [HttpPost("login")]
+        public async Task<ActionResult<AppUser>> Login(LoginDto loginDto)
+        {
+            var user = await context.Users.FirstOrDefaultAsync(x=>x.Email == loginDto.Email);
+            if (user == null) return Unauthorized("Invalid email address");
+            using var hmac = new HMACSHA512(user.PasswordSalt);
+            var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(loginDto.Password));
+            for (int i = 0; i < computedHash.Length; i++)
+            {
+                if (computedHash[i] != user.PasswordHash[i]) return Unauthorized("Invalid password");
+            }
+            return user;
         }
 
         private async Task<bool> EmailExists(string email)
